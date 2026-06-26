@@ -99,7 +99,7 @@ class ReceiveIntent {
       'setResult',
       {
         'resultCode': resultCode,
-        'intent': intent?.toJson(),
+        'intent': intent?.toMap(),
         'shouldFinish': shouldFinish,
       },
     );
