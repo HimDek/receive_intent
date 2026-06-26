@@ -1,5 +1,6 @@
 package com.bhikadia.receive_intent
 
+import androidx.core.content.FileProvider;
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,9 +14,10 @@ import android.os.Bundle
 // import org.json.JSONObject
 import java.security.MessageDigest
 import java.util.ArrayList
+import java.io.File
 
 
-fun mapToIntent(map: Map<*, *>): Intent {
+fun mapToIntent(context: Context, map: Map<*, *>): Intent {
 
     val intent = Intent()
 
@@ -23,8 +25,18 @@ fun mapToIntent(map: Map<*, *>): Intent {
         intent.action = it
     }
 
-    (map["data"] as? String)?.let {
-        intent.data = Uri.parse(it)
+    (map["data"] as? String)?.let { data ->
+        intent.data =
+            if (data.startsWith("/")) {
+                FileProvider.getUriForFile(
+                    context,
+                    context.packageName + ".fileprovider",
+                    File(data)
+                )
+            } else {
+                Uri.parse(data)
+            }
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
     (map["flags"] as? Number)?.let {
@@ -47,7 +59,7 @@ fun mapToIntent(map: Map<*, *>): Intent {
             it
         )
     }
-
+    
     return intent
 }
 
