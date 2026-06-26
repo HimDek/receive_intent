@@ -27,6 +27,10 @@ fun mapToIntent(map: Map<*, *>): Intent {
         intent.data = Uri.parse(it)
     }
 
+    (map["flags"] as? Number)?.let {
+        intent.flags = it.toInt()
+    }
+
     (map["categories"] as? List<*>)?.forEach {
         if (it is String)
             intent.addCategory(it)
@@ -61,6 +65,7 @@ fun intentToMap(
         },
         "action" to intent.action,
         "data" to intent.dataString,
+        "flags" to intent.flags,
         "categories" to intent.categories?.toList(),
         "extra" to intent.extras?.let {
             bundleToMap(it)
