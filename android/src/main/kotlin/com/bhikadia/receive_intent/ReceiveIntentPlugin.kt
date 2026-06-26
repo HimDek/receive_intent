@@ -13,7 +13,6 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import org.json.JSONObject
 // import android.util.Log
 
 
@@ -40,15 +39,7 @@ class ReceiveIntentPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Strea
         // val decodeData = intent.extras?.get("com.symbol.datawedge.decode_data")
         // Log.e("ReceiveIntentPlugin", "decodeData: $decodeData")
         // Log.e("ReceiveIntentPlugin", "fromPackageName: $fromPackageName")
-        val intentMap = mapOf<String, Any?>(
-                "componentClassName" to intent.component?.className,
-                "fromPackageName" to fromPackageName,
-                "fromSignatures" to fromPackageName?.let { getApplicationSignature(context, it) },
-                "action" to intent.action,
-                "data" to intent.dataString,
-                "categories" to intent.categories?.toList(),
-                "extra" to intent.extras?.let { bundleToJSON(it).toString() }
-        )
+    val intentMap = intentToMap(context, intent, fromPackageName)
         // Log.e("ReceiveIntentPlugin", "intentMap: $intentMap")
         if (initialIntent) {
             initialIntentMap = intentMap
@@ -58,20 +49,30 @@ class ReceiveIntentPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Strea
         eventSink?.success(latestIntentMap)
     }
 
-    private fun setResult(result: Result, resultCode: Int?, data: String?, shouldFinish: Boolean?) {
-        if (resultCode != null) {
-            if (data == null) {
-                activity?.setResult(resultCode)
-            } else {
-                val json = JSONObject(data)
-                activity?.setResult(resultCode, jsonToIntent(json))
-            }
-            if (shouldFinish ?: false) {
-                activity?.finish()
-            }
-            return result.success(null)
+    private fun setResult(
+        result: Result,
+        resultCode: Int?,
+        intent: Map<*, *>?,
+        shouldFinish: Boolean?
+    ) {
+        if (resultCode == null) {
+            result.error("InvalidArg", "resultCode cannot be null", null)
+            return
         }
-        result.error("InvalidArg", "resultCode can not be null", null)
+    
+        if (intent == null) {
+            activity?.setResult(resultCode)
+        } else {
+            activity?.setResult(
+                resultCode,
+                mapToIntent(intent)
+            )
+        }
+    
+        if (shouldFinish == true)
+            activity?.finish()
+    
+        result.success(null)
     }
 
 
@@ -91,7 +92,12 @@ class ReceiveIntentPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Strea
                 result.success(initialIntentMap)
             }
             "setResult" -> {
-                setResult(result, call.argument("resultCode"), call.argument("data"), call.argument("shouldFinish"))
+                setResult(
+                    result,
+                    call.argument("resultCode"),
+                    call.argument("intent"),
+                    call.argument("shouldFinish")
+                )
             }
             else -> {
                 result.notImplemented()
