@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
@@ -53,7 +52,7 @@ class Intent {
                 (map!["categories"] as List).map((e) => e.toString()))
             : null,
         extra: map?["extra"] != null
-            ? (json.decode(map!["extra"]) as Map)
+            ? (map!["extra"] as Map)
                 .map((key, value) => MapEntry(key.toString(), value))
             : null,
       );
@@ -91,12 +90,18 @@ class ReceiveIntent {
       .receiveBroadcastStream()
       .map<Intent?>((event) => Intent.fromMap(event as Map?));
 
-  static Future<void> setResult(int resultCode,
-      {Map<String, Object?>? data, bool shouldFinish = false}) async {
-    await _methodChannel.invokeMethod('setResult', <String, dynamic>{
-      "resultCode": resultCode,
-      if (data != null) "data": json.encode(data),
-      "shouldFinish": shouldFinish,
-    });
+  static Future<void> setResult(
+    int resultCode, {
+    Intent? intent,
+    bool shouldFinish = false,
+  }) {
+    return _methodChannel.invokeMethod(
+      'setResult',
+      {
+        'resultCode': resultCode,
+        'intent': intent?.toJson(),
+        'shouldFinish': shouldFinish,
+      },
+    );
   }
 }
