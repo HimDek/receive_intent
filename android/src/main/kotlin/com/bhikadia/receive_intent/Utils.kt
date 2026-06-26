@@ -6,150 +6,200 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Parcelable
+// import android.os.Parcelable
 // import android.util.Log
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+// import org.json.JSONArray
+// import org.json.JSONException
+// import org.json.JSONObject
 import java.security.MessageDigest
 import java.util.ArrayList
 
 
-fun jsonToBundle(json: JSONObject): Bundle {
+fun mapToIntent(map: Map<*, *>): Intent {
+
+    val intent = Intent()
+
+    (map["action"] as? String)?.let {
+        intent.action = it
+    }
+
+    (map["data"] as? String)?.let {
+        intent.data = Uri.parse(it)
+    }
+
+    (map["categories"] as? List<*>)?.forEach {
+        if (it is String)
+            intent.addCategory(it)
+    }
+
+    (map["extra"] as? Map<*, *>)?.forEach { (key, value) ->
+        if (key is String)
+            putExtra(intent, key, value)
+    }
+
+    (map["componentClassName"] as? String)?.let {
+        intent.setClassName(
+            intent.`package` ?: "",
+            it
+        )
+    }
+
+    return intent
+}
+
+fun intentToMap(
+    context: Context,
+    intent: Intent,
+    fromPackageName: String?
+): Map<String, Any?> {
+
+    return mapOf(
+        "componentClassName" to intent.component?.className,
+        "fromPackageName" to fromPackageName,
+        "fromSignatures" to fromPackageName?.let {
+            getApplicationSignature(context, it)
+        },
+        "action" to intent.action,
+        "data" to intent.dataString,
+        "categories" to intent.categories?.toList(),
+        "extra" to intent.extras?.let {
+            bundleToMap(it)
+        }
+    )
+}
+
+fun bundleToMap(bundle: Bundle): Map<String, Any?> {
+
+    val map = HashMap<String, Any?>()
+
+    for (key in bundle.keySet()) {
+        map[key] = bundleValue(bundle[key])
+    }
+
+    return map
+}
+
+fun bundleValue(value: Any?): Any? {
+
+    return when (value) {
+
+        null -> null
+
+        is String,
+        is Boolean,
+        is Byte,
+        is Short,
+        is Int,
+        is Long,
+        is Float,
+        is Double -> value
+
+        is Char -> value.toString()
+
+        is Uri -> value.toString()
+
+        is ArrayList<*> -> value
+
+        is IntArray -> value.toList()
+
+        is LongArray -> value.toList()
+
+        is FloatArray -> value.toList()
+
+        is DoubleArray -> value.toList()
+
+        is BooleanArray -> value.toList()
+
+        is ByteArray -> value.toList()
+
+        is ShortArray -> value.toList()
+
+        is CharArray -> value.map { it.toString() }
+
+        is Bundle -> bundleToMap(value)
+
+        else -> value.toString()
+    }
+}
+
+fun mapToBundle(map: Map<*, *>): Bundle {
     val bundle = Bundle()
-    try {
-        val iterator: Iterator<String> = json.keys()
-        while (iterator.hasNext()) {
-            val key = iterator.next()
-            val value: Any = json.get(key)
-            when (value.javaClass.getSimpleName()) {
-                "String" -> bundle.putString(key, value as String)
-                "Integer" -> bundle.putInt(key, value as Int)
-                "Long" -> bundle.putLong(key, value as Long)
-                "Boolean" -> bundle.putBoolean(key, value as Boolean)
-                "JSONObject" -> bundle.putBundle(key, jsonToBundle(value as JSONObject))
-                "Float" -> bundle.putFloat(key, value as Float)
-                "Double" -> bundle.putDouble(key, value as Double)
-                else -> bundle.putString(key, value.toString())
-            }
+
+    map.forEach { (key, value) ->
+        if (key is String) {
+            putBundleValue(bundle, key, value)
         }
-    } catch (e: JSONException) {
-        e.printStackTrace()
     }
+
     return bundle
-
 }
 
-fun jsonToIntent(json: JSONObject): Intent = Intent().apply {
-    putExtras(jsonToBundle(json))
+fun putBundleValue(bundle: Bundle, key: String, value: Any?) {
+    when (value) {
+        null -> bundle.putString(key, null)
+        is String -> bundle.putString(key, value)
+        is Boolean -> bundle.putBoolean(key, value)
+        is Byte -> bundle.putByte(key, value)
+        is Short -> bundle.putShort(key, value)
+        is Int -> bundle.putInt(key, value)
+        is Long -> bundle.putLong(key, value)
+        is Float -> bundle.putFloat(key, value)
+        is Double -> bundle.putDouble(key, value)
+        is Map<*, *> -> bundle.putBundle(key, mapToBundle(value))
+        else -> bundle.putString(key, value.toString())
+    }
 }
 
+fun putExtra(
+    intent: Intent,
+    key: String,
+    value: Any?
+) {
 
-fun bundleToJSON(bundle: Bundle): JSONObject {
-    val json = JSONObject()
-    val ks = bundle.keySet()
-    val iterator: Iterator<String> = ks.iterator()
-    while (iterator.hasNext()) {
-        val key = iterator.next()
-        try {
-            // Log.e("ReceiveIntentPlugin wrapping key", "$key")
-            json.put(key, wrap(bundle.get(key)))
-        } catch (e: JSONException) {
-            e.printStackTrace()
-        }
-    }
-    return json
-}
+    when (value) {
 
-fun wrap(o: Any?): Any? {
-    if (o == null) {
-        // Log.e("ReceiveIntentPlugin", "$o is null")
-        return JSONObject.NULL
-    }
-    if (o is JSONArray || o is JSONObject) {
-        // Log.e("ReceiveIntentPlugin", "$o is JSONArray or JSONObject")
-        return o
-    }
-    if (o == JSONObject.NULL) {
-        // Log.e("ReceiveIntentPlugin", "$o is JSONObject.NULL")
-        return o
-    }
-    try {
-        if (o is Collection<*>) {
-            // Log.e("ReceiveIntentPlugin", "$o is Collection<*>")
-            if (o is ArrayList<*>) {
-                // Log.e("ReceiveIntentPlugin", "..And also ArrayList")
-                return toJSONArray(o)
-            }
-            return JSONArray(o as Collection<*>?)
-        } else if (o.javaClass.isArray) {
-            // Log.e("ReceiveIntentPlugin", "$o is isArray")
-            return toJSONArray(o)
-        }
-        if (o is Map<*, *>) {
-            // Log.e("ReceiveIntentPlugin", "$o is Map<*, *>")
-            return JSONObject(o as Map<*, *>?)
-        }
-        if (o is Boolean ||
-                o is Byte ||
-                o is Char ||
-                o is Double ||
-                o is Float ||
-                o is Int ||
-                o is Long ||
-                o is Short ||
-                o is String) {
-            return o
-        }
-        if (o is Uri || o.javaClass.getPackage().name.startsWith("java.")) {
-            return o.toString()
-        }
-    } catch (e: Exception) {
-        // Log.e("ReceiveIntentPlugin", e.message, e)
-    }
-    return null
-}
+        null ->
+            intent.putExtra(key, null as String?)
 
-@Throws(JSONException::class)
-fun toJSONArray(array: Any): JSONArray? {
-    val result = JSONArray()
-    if (!array.javaClass.isArray && array !is ArrayList<*>) {
-        // Log.e("ReceiveIntentPlugin not a primitive array", "")
-        throw JSONException("Not a primitive array: " + array.javaClass)
+        is String ->
+            intent.putExtra(key, value)
+
+        is Boolean ->
+            intent.putExtra(key, value)
+
+        is Byte ->
+            intent.putExtra(key, value)
+
+        is Short ->
+            intent.putExtra(key, value)
+
+        is Int ->
+            intent.putExtra(key, value)
+
+        is Long ->
+            intent.putExtra(key, value)
+
+        is Float ->
+            intent.putExtra(key, value)
+
+        is Double ->
+            intent.putExtra(key, value)
+
+        is List<*> ->
+            intent.putStringArrayListExtra(
+                key,
+                ArrayList(value.map { it.toString() })
+            )
+
+        is Map<*, *> ->
+            intent.putExtra(key, mapToBundle(value))
+
+        else ->
+            intent.putExtra(
+                key,
+                value.toString()
+            )
     }
-
-    when (array) {
-        is List<*> -> {
-            // Log.e("ReceiveIntentPlugin toJSONArray List", "")
-            // Log.e("ReceiveIntentPlugin toJSONArray List size", "${array.size}")
-            array.forEach { result.put(wrap(it)) }
-        }
-        is Array<*> -> {
-            // Log.e("ReceiveIntentPlugin toJSONArray Array", "")
-            // Log.e("ReceiveIntentPlugin toJSONArray Array size", "${array.size}")
-            array.forEach { result.put(wrap(it)) }
-        }
-        is ArrayList<*> -> {
-            // Log.e("ReceiveIntentPlugin toJSONArray ArrayList", "")
-            array.forEach { result.put(wrap(it)) }
-        }
-        is ByteArray -> {
-            // Log.e("ReceiveIntentPlugin toJSONArray ByteArray", "")
-            array.forEach { result.put(wrap(it)) }
-        }
-        else -> {
-            // val typename = array.javaClass.kotlin.simpleName
-            // Log.e("ReceiveIntentPlugin toJSONArray else", "$typename")
-            val length = java.lang.reflect.Array.getLength(array)
-            for (i in 0 until length) {
-                result.put(wrap(java.lang.reflect.Array.get(array, i)))
-            }
-        }
-    }
-
-    // Log.e("ReceiveIntentPlugin toJSONArray result", "$result")
-
-    return result
 }
 
 fun getApplicationSignature(context: Context, packageName: String): List<String> {
