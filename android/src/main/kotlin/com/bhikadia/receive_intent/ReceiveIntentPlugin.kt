@@ -65,7 +65,7 @@ class ReceiveIntentPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Strea
         } else {
             activity?.setResult(
                 resultCode,
-                mapToIntent(intent)
+                mapToIntent(context, intent)
             )
         }
     
