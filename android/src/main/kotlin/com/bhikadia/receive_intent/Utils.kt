@@ -153,7 +153,11 @@ fun bundleValue(value: Any?): Any? {
 
         is Uri -> value.toString()
 
-        is ArrayList<*> -> value
+        is Array<*> ->
+            value.map { bundleValue(it) }
+
+        is ArrayList<*> ->
+            value.map { bundleValue(it) }
 
         is IntArray -> value.toList()
 
