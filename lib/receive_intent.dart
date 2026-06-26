@@ -15,12 +15,22 @@ const kActivityResultOk = -1;
 const kActivityResultCanceled = 0;
 
 class Intent {
+  static const FlagGrantReadUriPermission = 0x00000001;
+  static const FlagGrantWriteUriPermission = 0x00000002;
+  static const FlagFromBackground = 0x00000004;
+  static const FlagDebugLogResolution = 0x00000008;
+  static const FlagExcludeStoppedPackages = 0x00000010;
+  static const FlagIncludeStoppedPackages = 0x00000020;
+  static const FlagGrantPersistableUriPermission = 0x00000040;
+  static const FlagGrantPrefixUriPermission = 0x00000080;
+  
   final bool isNull;
   final String? componentClassName;
   final String? fromPackageName;
   final List<String>? fromSignatures;
   final String? action;
   final String? data;
+  final int flags;
   final List<String>? categories;
   final Map<String, dynamic>? extra;
 
@@ -33,6 +43,7 @@ class Intent {
     this.fromSignatures,
     this.action,
     this.data,
+    this.flags = 0,
     this.categories,
     this.extra,
   });
@@ -47,6 +58,7 @@ class Intent {
             : null,
         action: map?["action"],
         data: map?["data"],
+        flags: (map?["flags"] as num?)?.toInt() ?? 0,
         categories: map?["categories"] != null
             ? List.unmodifiable(
                 (map!["categories"] as List).map((e) => e.toString()))
@@ -63,10 +75,44 @@ class Intent {
         "fromSignatures": fromSignatures,
         "action": action,
         "data": data,
+        "flags": flags,
         "categories": categories,
         "extra": extra,
       };
 
+
+  Intent addFlags(int flags) {
+    return Intent(
+      isNull: isNull,
+      componentClassName: componentClassName,
+      fromPackageName: fromPackageName,
+      fromSignatures: fromSignatures,
+      action: action,
+      data: data,
+      flags: this.flags | flags,
+      categories: categories,
+      extra: extra,
+    );
+  }
+
+  Intent clearFlags(int flags) {
+    return Intent(
+      isNull: isNull,
+      componentClassName: componentClassName,
+      fromPackageName: fromPackageName,
+      fromSignatures: fromSignatures,
+      action: action,
+      data: data,
+      flags: this.flags & ~flags,
+      categories: categories,
+      extra: extra,
+    );
+  }
+
+  bool hasFlags(int flags) {
+    return (this.flags & flags) == flags;
+  }
+  
   @override
   String toString() {
     if (isNull) return 'Intent(null)';
