@@ -1,6 +1,7 @@
 package com.bhikadia.receive_intent
 
 import androidx.core.content.FileProvider;
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -37,6 +38,46 @@ fun mapToIntent(context: Context, map: Map<*, *>): Intent {
                 Uri.parse(data)
             }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    (map["clipData"] as? List<*>)?.let { files ->
+
+        var clip: ClipData? = null
+
+        files.forEach { item ->
+
+            val path = item as? String ?: return@forEach
+
+            val uri =
+                if (path.startsWith("/")) {
+                    FileProvider.getUriForFile(
+                        context,
+                        context.packageName + ".fileprovider",
+                        File(path)
+                    )
+                } else {
+                    Uri.parse(path)
+                }
+
+            if (clip == null) {
+                clip = ClipData.newUri(
+                    context.contentResolver,
+                    "",
+                    uri
+                )
+            } else {
+                clip!!.addItem(ClipData.Item(uri))
+            }
+        }
+
+        clip?.let {
+            intent.clipData = it
+
+            if (intent.data == null)
+                intent.data = it.getItemAt(0).uri
+
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
     }
 
     (map["flags"] as? Number)?.let {
@@ -77,6 +118,11 @@ fun intentToMap(
         },
         "action" to intent.action,
         "data" to intent.dataString,
+        "clipData" to intent.clipData?.let { clip ->
+            List(clip.itemCount) { i ->
+                clip.getItemAt(i).uri?.toString()
+            }.filterNotNull()
+        },
         "flags" to intent.flags,
         "categories" to intent.categories?.toList(),
         "extra" to intent.extras?.let {

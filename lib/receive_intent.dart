@@ -21,6 +21,7 @@ class Intent {
   final List<String>? fromSignatures;
   final String? action;
   final String? data;
+  final List<String>? clipData;
   final List<String>? categories;
   final Map<String, dynamic>? extra;
 
@@ -33,6 +34,7 @@ class Intent {
     this.fromSignatures,
     this.action,
     this.data,
+    this.clipData,
     this.categories,
     this.extra,
   });
@@ -47,6 +49,11 @@ class Intent {
             : null,
         action: map?["action"],
         data: map?["data"],
+        clipData: map?["clipData"] != null
+            ? List.unmodifiable(
+                (map!["clipData"] as List).map((e) => e.toString()),
+              )
+            : null,
         categories: map?["categories"] != null
             ? List.unmodifiable(
                 (map!["categories"] as List).map((e) => e.toString()))
@@ -63,10 +70,11 @@ class Intent {
         "fromSignatures": fromSignatures,
         "action": action,
         "data": data,
+        "clipData": clipData,
         "categories": categories,
         "extra": extra,
       };
-  
+
   @override
   String toString() {
     if (isNull) return 'Intent(null)';
