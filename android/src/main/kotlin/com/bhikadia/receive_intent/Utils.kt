@@ -17,6 +17,17 @@ import java.security.MessageDigest
 import java.util.ArrayList
 import java.io.File
 
+private fun toUri(context: Context, pathOrUri: String): Uri {
+    return if (pathOrUri.startsWith("/")) {
+        FileProvider.getUriForFile(
+            context,
+            context.packageName + ".fileprovider",
+            File(pathOrUri)
+        )
+    } else {
+        Uri.parse(pathOrUri)
+    }
+}
 
 fun mapToIntent(context: Context, map: Map<*, *>): Intent {
 
@@ -26,17 +37,8 @@ fun mapToIntent(context: Context, map: Map<*, *>): Intent {
         intent.action = it
     }
 
-    (map["data"] as? String)?.let { data ->
-        intent.data =
-            if (data.startsWith("/")) {
-                FileProvider.getUriForFile(
-                    context,
-                    context.packageName + ".fileprovider",
-                    File(data)
-                )
-            } else {
-                Uri.parse(data)
-            }
+    (map["data"] as? String)?.let {
+        intent.data = toUri(context, it)
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
@@ -45,19 +47,8 @@ fun mapToIntent(context: Context, map: Map<*, *>): Intent {
         var clip: ClipData? = null
 
         files.forEach { item ->
-
             val path = item as? String ?: return@forEach
-
-            val uri =
-                if (path.startsWith("/")) {
-                    FileProvider.getUriForFile(
-                        context,
-                        context.packageName + ".fileprovider",
-                        File(path)
-                    )
-                } else {
-                    Uri.parse(path)
-                }
+            val uri = toUri(context, path)
 
             if (clip == null) {
                 clip = ClipData.newUri(
@@ -73,8 +64,9 @@ fun mapToIntent(context: Context, map: Map<*, *>): Intent {
         clip?.let {
             intent.clipData = it
 
-            if (intent.data == null)
+            if (intent.data == null) {
                 intent.data = it.getItemAt(0).uri
+            }
 
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
